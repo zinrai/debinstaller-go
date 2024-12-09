@@ -7,24 +7,26 @@ import (
 	"strings"
 )
 
-// RunCommand はコマンドを実行し、標準出力と標準エラー出力を表示します
+// Output standard output and standard error
 func RunCommand(logger *Logger, name string, args ...string) error {
-	logger.Info("Executing command: %s %v", name, args)
+	cmdLine := fmt.Sprintf("%s %s", name, strings.Join(args, " "))
+	logger.Info("Executing command: %s", cmdLine)
 
 	cmd := exec.Command(name, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("command failed: %v", err)
+		return fmt.Errorf("command failed: %v, command: %s", err, cmdLine)
 	}
 
 	return nil
 }
 
-// RunCommandWithInput は標準入力を受け付けるコマンドを実行します
+// Execute commands that accept standard input
 func RunCommandWithInput(logger *Logger, input string, name string, args ...string) error {
-	logger.Info("Executing command: %s %v", name, args)
+	cmdLine := fmt.Sprintf("%s %s", name, strings.Join(args, " "))
+	logger.Info("Executing command: %s with input: %s", cmdLine, input)
 
 	cmd := exec.Command(name, args...)
 	cmd.Stdout = os.Stdout
@@ -32,22 +34,23 @@ func RunCommandWithInput(logger *Logger, input string, name string, args ...stri
 	cmd.Stdin = strings.NewReader(input)
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("command failed: %v", err)
+		return fmt.Errorf("command failed: %v, command: %s", err, cmdLine)
 	}
 
 	return nil
 }
 
-// RunCommandWithOutput はコマンドを実行し、出力を返します
+// Command and returns output.
 func RunCommandWithOutput(logger *Logger, name string, args ...string) ([]byte, error) {
-	logger.Info("Executing command: %s %v", name, args)
+	cmdLine := fmt.Sprintf("%s %s", name, strings.Join(args, " "))
+	logger.Info("Executing command: %s", cmdLine)
 
 	cmd := exec.Command(name, args...)
 	cmd.Stderr = os.Stderr
 
 	output, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("command failed: %v", err)
+		return nil, fmt.Errorf("command failed: %v, command: %s", err, cmdLine)
 	}
 
 	return output, nil
