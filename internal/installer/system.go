@@ -66,7 +66,7 @@ func (i *Installer) configureUsers() error {
 
 		for _, group := range user.Groups {
 			if err := utils.RunCommand(i.Logger, "chroot", i.Config.Installation.MountPoint,
-				"usermod", "-aG", group, user.Username); err != nil {
+				"gpasswd", "-a", user.Username, group); err != nil {
 				return fmt.Errorf("failed to add user %s to group %s: %v", user.Username, group, err)
 			}
 		}
