@@ -3,6 +3,7 @@ package installer
 import (
 	"fmt"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/zinrai/debinstaller-go/internal/config"
 	"github.com/zinrai/debinstaller-go/internal/utils"
@@ -56,10 +57,43 @@ func (i *Installer) installBaseSystem() error {
 	return nil
 }
 
+func (i *Installer) mountSpecialFilesystems() error {
+	i.Logger.Info("Mounting special filesystems for chroot")
+
+	mountPoints := []struct {
+		options []string
+		source  string
+		target  string
+	}{
+		{[]string{"--rbind"}, "/dev", "/dev"},
+		{[]string{"-t", "proc"}, "none", "/proc"},
+		{[]string{"--rbind"}, "/sys", "/sys"},
+	}
+
+	for _, mp := range mountPoints {
+		target := filepath.Join(i.Config.Installation.MountPoint, mp.target)
+		args := append(mp.options, mp.source, target)
+		if err := utils.RunCommand(i.Logger, "mount", args...); err != nil {
+			return fmt.Errorf("failed to mount %s: %v", mp.target, err)
+		}
+	}
+
+	return nil
+}
+
 func (i *Installer) configureSystem() error {
 	i.Logger.Info("Configuring system")
 
 	if err := i.generateFstab(); err != nil {
+		return err
+	}
+
+	// Mount special filesystems for chroot
+	if err := i.mountSpecialFilesystems(); err != nil {
+		return fmt.Errorf("failed to mount special filesystems: %v", err)
+	}
+
+	if err := i.installAdditionalPackages(); err != nil {
 		return err
 	}
 
@@ -76,10 +110,6 @@ func (i *Installer) configureSystem() error {
 	}
 
 	if err := i.configureUsers(); err != nil {
-		return err
-	}
-
-	if err := i.installAdditionalPackages(); err != nil {
 		return err
 	}
 
