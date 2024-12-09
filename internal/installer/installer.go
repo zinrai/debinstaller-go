@@ -2,7 +2,6 @@ package installer
 
 import (
 	"fmt"
-	"os/exec"
 	"path/filepath"
 
 	"github.com/zinrai/debinstaller-go/internal/config"
@@ -43,14 +42,11 @@ func (i *Installer) Install() error {
 func (i *Installer) installBaseSystem() error {
 	i.Logger.Info("Installing base system")
 
-	cmd := exec.Command(
-		"debootstrap",
+	if err := utils.RunCommand(i.Logger, "debootstrap",
 		"--arch="+i.Config.Installation.Architecture,
 		i.Config.Installation.DebianVersion,
 		i.Config.Installation.MountPoint,
-		"http://deb.debian.org/debian",
-	)
-	if err := cmd.Run(); err != nil {
+		"http://deb.debian.org/debian"); err != nil {
 		return fmt.Errorf("failed to install base system: %v", err)
 	}
 

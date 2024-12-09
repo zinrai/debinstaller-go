@@ -3,7 +3,6 @@ package installer
 import (
 	"fmt"
 	"os"
-	"os/exec"
 
 	"github.com/zinrai/debinstaller-go/internal/utils"
 )
@@ -36,13 +35,11 @@ func (i *Installer) setHostname() error {
 func (i *Installer) configureLocale() error {
 	i.Logger.Info("Configuring locale")
 
-	cmd := exec.Command("chroot", i.Config.Installation.MountPoint, "locale-gen", i.Config.System.Locale)
-	if err := cmd.Run(); err != nil {
+	if err := utils.RunCommand(i.Logger, "chroot", i.Config.Installation.MountPoint, "locale-gen", i.Config.System.Locale); err != nil {
 		return fmt.Errorf("failed to generate locale: %v", err)
 	}
 
-	cmd = exec.Command("chroot", i.Config.Installation.MountPoint, "update-locale", fmt.Sprintf("LANG=%s", i.Config.System.Locale))
-	if err := cmd.Run(); err != nil {
+	if err := utils.RunCommand(i.Logger, "chroot", i.Config.Installation.MountPoint, "update-locale", fmt.Sprintf("LANG=%s", i.Config.System.Locale)); err != nil {
 		return fmt.Errorf("failed to update locale: %v", err)
 	}
 
@@ -78,14 +75,12 @@ func (i *Installer) configureUsers() error {
 func (i *Installer) installAdditionalPackages() error {
 	i.Logger.Info("Installing additional packages")
 
-	cmd := exec.Command("chroot", i.Config.Installation.MountPoint, "apt-get", "update")
-	if err := cmd.Run(); err != nil {
+	if err := utils.RunCommand(i.Logger, "chroot", i.Config.Installation.MountPoint, "apt-get", "update"); err != nil {
 		return fmt.Errorf("failed to update package lists: %v", err)
 	}
 
 	args := append([]string{i.Config.Installation.MountPoint, "apt-get", "install", "-y"}, i.Config.Packages...)
-	cmd = exec.Command("chroot", args...)
-	if err := cmd.Run(); err != nil {
+	if err := utils.RunCommand(i.Logger, "chroot", args...); err != nil {
 		return fmt.Errorf("failed to install additional packages: %v", err)
 	}
 
@@ -95,19 +90,20 @@ func (i *Installer) installAdditionalPackages() error {
 func (i *Installer) installBootloader() error {
 	i.Logger.Info("Installing bootloader")
 
-	var cmd *exec.Cmd
 	if i.Config.Bootloader.Type == "grub" {
 		if i.Config.Bootloader.EFI {
-			cmd = exec.Command("chroot", i.Config.Installation.MountPoint, "grub-install", "--target=x86_64-efi", "--efi-directory=/boot/efi", "--bootloader-id=debian")
+			if err := utils.RunCommand(i.Logger, "chroot", i.Config.Installation.MountPoint,
+				"grub-install", "--target=x86_64-efi", "--efi-directory=/boot/efi", "--bootloader-id=debian"); err != nil {
+				return fmt.Errorf("failed to install GRUB: %v", err)
+			}
 		} else {
-			cmd = exec.Command("chroot", i.Config.Installation.MountPoint, "grub-install", "--target=i386-pc", i.Config.Storage.Devices[0])
-		}
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to install GRUB: %v", err)
+			if err := utils.RunCommand(i.Logger, "chroot", i.Config.Installation.MountPoint,
+				"grub-install", "--target=i386-pc", i.Config.Storage.Devices[0]); err != nil {
+				return fmt.Errorf("failed to install GRUB: %v", err)
+			}
 		}
 
-		cmd = exec.Command("chroot", i.Config.Installation.MountPoint, "update-grub")
-		if err := cmd.Run(); err != nil {
+		if err := utils.RunCommand(i.Logger, "chroot", i.Config.Installation.MountPoint, "update-grub"); err != nil {
 			return fmt.Errorf("failed to update GRUB: %v", err)
 		}
 	} else {
