@@ -54,8 +54,7 @@ packages:
   - vim
 
 bootloader:
-  type: "grub"
-  efi: true
+  efi: false
 
 installation:
   mount_point: "/mnt/debian"

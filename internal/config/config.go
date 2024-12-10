@@ -44,8 +44,7 @@ type Config struct {
 	} `yaml:"users"`
 	Packages   []string `yaml:"packages"`
 	Bootloader struct {
-		Type string `yaml:"type"`
-		EFI  bool   `yaml:"efi"`
+		EFI bool `yaml:"efi"`
 	} `yaml:"bootloader"`
 	Advanced struct {
 		EnableSerialConsole bool   `yaml:"enable_serial_console"`

@@ -96,24 +96,20 @@ func (i *Installer) installAdditionalPackages() error {
 func (i *Installer) installBootloader() error {
 	i.Logger.Info("Installing bootloader")
 
-	if i.Config.Bootloader.Type == "grub" {
-		if i.Config.Bootloader.EFI {
-			if err := utils.RunCommand(i.Logger, "chroot", i.Config.Installation.MountPoint,
-				"grub-install", "--target=x86_64-efi", "--efi-directory=/boot/efi", "--bootloader-id=debian"); err != nil {
-				return fmt.Errorf("failed to install GRUB: %v", err)
-			}
-		} else {
-			if err := utils.RunCommand(i.Logger, "chroot", i.Config.Installation.MountPoint,
-				"grub-install", "--target=i386-pc", i.Config.Storage.Devices[0]); err != nil {
-				return fmt.Errorf("failed to install GRUB: %v", err)
-			}
-		}
-
-		if err := utils.RunCommand(i.Logger, "chroot", i.Config.Installation.MountPoint, "update-grub"); err != nil {
-			return fmt.Errorf("failed to update GRUB: %v", err)
+	if i.Config.Bootloader.EFI {
+		if err := utils.RunCommand(i.Logger, "chroot", i.Config.Installation.MountPoint,
+			"grub-install", "--target=x86_64-efi", "--efi-directory=/boot/efi", "--bootloader-id=debian"); err != nil {
+			return fmt.Errorf("failed to install GRUB EFI: %v", err)
 		}
 	} else {
-		return fmt.Errorf("unsupported bootloader type: %s", i.Config.Bootloader.Type)
+		if err := utils.RunCommand(i.Logger, "chroot", i.Config.Installation.MountPoint,
+			"grub-install", "--target=i386-pc", i.Config.Storage.Devices[0]); err != nil {
+			return fmt.Errorf("failed to install GRUB BIOS: %v", err)
+		}
+	}
+
+	if err := utils.RunCommand(i.Logger, "chroot", i.Config.Installation.MountPoint, "update-grub"); err != nil {
+		return fmt.Errorf("failed to update GRUB: %v", err)
 	}
 
 	return nil
