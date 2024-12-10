@@ -32,7 +32,7 @@ system:
 
 network:
   interface: "eth0"
-  ip_address: "dhcp"
+  type: "dhcp"
 
 users:
   - username: "admin"

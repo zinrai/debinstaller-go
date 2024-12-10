@@ -9,6 +9,7 @@ A Go-based Debian installer that supports both BIOS and EFI boot installations w
 - YAML-based configuration
 - Flexible partition configuration
 - Automated installation process
+- Support for both DHCP and static IP configuration
 
 ## Prerequisites
 
@@ -61,7 +62,7 @@ storage:
       mount_point: "/boot/efi"
     - type: "boot"
       size: "512M"
-      filesystem: "ext4"
+      filesystem: "ext2"
       mount_point: "/boot"
     - type: "lvm_pv"
       size: "15G"
@@ -81,6 +82,29 @@ storage:
           mount_point: "/var"
 ```
 
+### Network Configuration
+
+Support for both DHCP and static IP configuration.
+
+DHCP Configuration:
+
+```yaml
+network:
+  interface: "ens1"
+  type: "dhcp"
+```
+
+Static IP Configuration:
+
+```yaml
+network:
+  interface: "ens1"
+  type: "static"
+  address: "192.168.2.20"
+  netmask: "255.255.255.0"
+  gateway: "192.168.2.254"
+```
+
 ### System Configuration
 
 Basic system settings:
@@ -88,10 +112,6 @@ Basic system settings:
 ```yaml
 system:
   hostname: "debian-server"
-
-network:
-  interface: "eth0"
-  ip_address: "dhcp"
 
 users:
   - username: "admin"
