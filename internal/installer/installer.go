@@ -3,6 +3,7 @@ package installer
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/zinrai/debinstaller-go/internal/config"
 	"github.com/zinrai/debinstaller-go/internal/utils"
@@ -42,9 +43,23 @@ func (i *Installer) Install() error {
 func (i *Installer) installBaseSystem() error {
 	i.Logger.Info("Installing base system")
 
+	grubPackage := "grub2"
+	if i.Config.Storage.Bootloader.Type == "efi" {
+		grubPackage = "grub-efi"
+	}
+
+	packages := []string{
+		"openssh-server",
+		"lvm2",
+		"sudo",
+		"locales",
+		grubPackage,
+		"linux-image-" + i.Config.Installation.Architecture,
+	}
+
 	if err := utils.RunCommand(i.Logger, "debootstrap",
 		"--arch="+i.Config.Installation.Architecture,
-		"--include=openssh-server,lvm2,sudo,locales,grub2,linux-image-"+i.Config.Installation.Architecture,
+		"--include="+strings.Join(packages, ","),
 		i.Config.Installation.DebianVersion,
 		i.Config.Installation.MountPoint,
 		"http://deb.debian.org/debian"); err != nil {
