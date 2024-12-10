@@ -44,6 +44,7 @@ func (i *Installer) installBaseSystem() error {
 
 	if err := utils.RunCommand(i.Logger, "debootstrap",
 		"--arch="+i.Config.Installation.Architecture,
+		"--include=openssh-server,lvm2,sudo,locales,grub2",
 		i.Config.Installation.DebianVersion,
 		i.Config.Installation.MountPoint,
 		"http://deb.debian.org/debian"); err != nil {
