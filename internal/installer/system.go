@@ -97,6 +97,7 @@ func (i *Installer) installBootloader() error {
 	i.Logger.Info("Installing bootloader")
 
 	if i.Config.Storage.Bootloader.Type == "efi" {
+		// --removable: UEFI firmware that only loads bootx64.efi from /EFI/BOOT
 		if err := utils.RunCommand(i.Logger, "chroot", i.Config.Installation.MountPoint,
 			"grub-install", "--target=x86_64-efi", "--efi-directory=/boot/efi", "--bootloader-id=debian", "--removable"); err != nil {
 			return fmt.Errorf("failed to install GRUB EFI: %v", err)
