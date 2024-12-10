@@ -44,7 +44,7 @@ func (i *Installer) installBaseSystem() error {
 
 	if err := utils.RunCommand(i.Logger, "debootstrap",
 		"--arch="+i.Config.Installation.Architecture,
-		"--include=openssh-server,lvm2,sudo,locales,grub2",
+		"--include=openssh-server,lvm2,sudo,locales,grub2,linux-image-"+i.Config.Installation.Architecture,
 		i.Config.Installation.DebianVersion,
 		i.Config.Installation.MountPoint,
 		"http://deb.debian.org/debian"); err != nil {
@@ -85,7 +85,6 @@ func (i *Installer) configureSystem() error {
 		return err
 	}
 
-	// Mount special filesystems for chroot
 	if err := i.mountSpecialFilesystems(); err != nil {
 		return fmt.Errorf("failed to mount special filesystems: %v", err)
 	}
