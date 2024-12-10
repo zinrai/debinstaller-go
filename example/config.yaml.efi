@@ -1,0 +1,53 @@
+storage:
+  devices:
+    - /dev/sda
+  bootloader:
+    type: "efi"
+  partitions:
+    - type: "efi_system"
+      size: "512M"
+      filesystem: "vfat"
+      mount_point: "/boot/efi"
+    - type: "boot"
+      size: "512M"
+      filesystem: "ext4"
+      mount_point: "/boot"
+    - type: "lvm_pv"
+      size: "15G"
+      volume_group: "vg0"
+      logical_volumes:
+        - name: "root"
+          size: "3G"
+          filesystem: "ext4"
+          mount_point: "/"
+        - name: "home"
+          size: "1G"
+          filesystem: "ext4"
+          mount_point: "/home"
+        - name: "var"
+          size: "1G"
+          filesystem: "ext4"
+          mount_point: "/var"
+
+system:
+  hostname: "debian-server"
+
+network:
+  interface: "eth0"
+  ip_address: "dhcp"
+
+users:
+  - username: "admin"
+    password: "changeme"
+    groups:
+      - "sudo"
+
+packages:
+  - vim
+
+installation:
+  mount_point: "/mnt/debian"
+  architecture: "amd64"
+  debian_version: "bookworm"
+
+log_file: "/tmp/debian_install.log"
