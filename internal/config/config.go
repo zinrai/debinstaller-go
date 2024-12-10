@@ -1,33 +1,42 @@
 package config
 
 import (
-	"os"
-
 	"gopkg.in/yaml.v2"
+	"os"
 )
 
-type LVMConfig struct {
-	VGName string `yaml:"vg"`
-	Size   string `yaml:"size"`
-}
+type PartitionType string
 
-type StoragePartition struct {
-	MountPoint string `yaml:"mount_point"`
+const (
+	PartitionTypeBiosBoot  PartitionType = "bios_boot"
+	PartitionTypeEfiSystem PartitionType = "efi_system"
+	PartitionTypeBoot      PartitionType = "boot"
+	PartitionTypeLvmPV     PartitionType = "lvm_pv"
+)
+
+type LogicalVolume struct {
+	Name       string `yaml:"name"`
 	Size       string `yaml:"size"`
 	Filesystem string `yaml:"filesystem"`
-	Partition  int    `yaml:"partition"`
-	Type       string `yaml:"type,omitempty"`
-	LVMConfig  struct {
-		VGName string `yaml:"vg,omitempty"`
-		Name   string `yaml:"name,omitempty"`
-	} `yaml:"lvm,omitempty"`
+	MountPoint string `yaml:"mount_point"`
+}
+
+type Partition struct {
+	Type           PartitionType   `yaml:"type"`
+	Size           string          `yaml:"size"`
+	Filesystem     string          `yaml:"filesystem,omitempty"`
+	MountPoint     string          `yaml:"mount_point,omitempty"`
+	VolumeGroup    string          `yaml:"volume_group,omitempty"`
+	LogicalVolumes []LogicalVolume `yaml:"logical_volumes,omitempty"`
 }
 
 type Config struct {
 	Storage struct {
-		Devices    []string           `yaml:"devices"`
-		LVM        LVMConfig          `yaml:"lvm"`
-		Partitions []StoragePartition `yaml:"partitions"`
+		Devices    []string `yaml:"devices"`
+		Bootloader struct {
+			Type string `yaml:"type"`
+		} `yaml:"bootloader"`
+		Partitions []Partition `yaml:"partitions"`
 	} `yaml:"storage"`
 	System struct {
 		Hostname string `yaml:"hostname"`
@@ -42,14 +51,7 @@ type Config struct {
 		Password string   `yaml:"password"`
 		Groups   []string `yaml:"groups"`
 	} `yaml:"users"`
-	Packages   []string `yaml:"packages"`
-	Bootloader struct {
-		EFI bool `yaml:"efi"`
-	} `yaml:"bootloader"`
-	Advanced struct {
-		EnableSerialConsole bool   `yaml:"enable_serial_console"`
-		CustomKernelParams  string `yaml:"custom_kernel_params"`
-	} `yaml:"advanced"`
+	Packages     []string `yaml:"packages"`
 	Installation struct {
 		MountPoint    string `yaml:"mount_point"`
 		Architecture  string `yaml:"architecture"`

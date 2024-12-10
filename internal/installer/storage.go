@@ -4,10 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/zinrai/debinstaller-go/internal/config"
@@ -17,18 +14,14 @@ import (
 func (i *Installer) prepareStorage() error {
 	i.Logger.Info("Preparing storage")
 
-	// partitioning
 	for _, device := range i.Config.Storage.Devices {
 		if err := i.partitionDevice(device); err != nil {
 			return err
 		}
 	}
 
-	// LVM setup ( if needed )
-	if needsLVM(i.Config.Storage.Partitions) {
-		if err := i.setupLVM(); err != nil {
-			return err
-		}
+	if err := i.setupLVM(); err != nil {
+		return err
 	}
 
 	if err := i.createFilesystems(); err != nil {
@@ -42,15 +35,6 @@ func (i *Installer) prepareStorage() error {
 	return nil
 }
 
-func needsLVM(partitions []config.StoragePartition) bool {
-	for _, p := range partitions {
-		if p.Type == "lvm" {
-			return true
-		}
-	}
-	return false
-}
-
 func (i *Installer) partitionDevice(device string) error {
 	i.Logger.Info("Partitioning device: %s", device)
 
@@ -59,37 +43,16 @@ func (i *Installer) partitionDevice(device string) error {
 		return fmt.Errorf("failed to clear partition table: %v", err)
 	}
 
-	// Build arguments for partitioning
 	args := []string{device}
-	partitionNums := make(map[int]bool)
-	lvmPartitionSize := ""
+	for idx, partition := range i.Config.Storage.Partitions {
+		partNum := idx + 1
 
-	// Set the size of the LVM partition
-	if i.Config.Storage.LVM.Size != "" {
-		lvmPartitionSize = i.Config.Storage.LVM.Size
-	}
-
-	for _, partition := range i.Config.Storage.Partitions {
-		if partitionNums[partition.Partition] {
-			continue // The same partition number is processed only once
-		}
-		partitionNums[partition.Partition] = true
-
-		size := partition.Size
-		if partition.Type == "lvm" && lvmPartitionSize != "" {
-			size = lvmPartitionSize
-		}
-
-		args = append(args, "-n", fmt.Sprintf("%d::+%s", partition.Partition, size))
+		// Add arguments for partition creation
+		args = append(args, "-n", fmt.Sprintf("%d::+%s", partNum, partition.Size))
 
 		// Set the partition type
-		typeCode := "8300" // Default is Linux filesystem
-		if partition.Filesystem == "vfat" {
-			typeCode = "ef00"
-		} else if partition.Type == "lvm" {
-			typeCode = "8e00" // Linux LVM
-		}
-		args = append(args, "-t", fmt.Sprintf("%d:%s", partition.Partition, typeCode))
+		typeCode := getPartitionTypeCode(partition.Type)
+		args = append(args, "-t", fmt.Sprintf("%d:%s", partNum, typeCode))
 	}
 
 	// Execute partitioning
@@ -101,75 +64,64 @@ func (i *Installer) partitionDevice(device string) error {
 	return nil
 }
 
+func getPartitionTypeCode(pType config.PartitionType) string {
+	switch pType {
+	case config.PartitionTypeBiosBoot:
+		return "ef02"
+	case config.PartitionTypeEfiSystem:
+		return "ef00"
+	case config.PartitionTypeLvmPV:
+		return "8e00"
+	default:
+		return "8300"
+	}
+}
+
 func (i *Installer) setupLVM() error {
 	i.Logger.Info("Setting up LVM")
 
-	// Check the total size of the LVM partitions
-	totalSize, err := i.calculateTotalLVMSize()
-	if err != nil {
-		return fmt.Errorf("failed to calculate total LVM size: %v", err)
+	// Find LVM PV partition
+	var lvmPartition *config.Partition
+	var partitionNumber int
+	for idx, part := range i.Config.Storage.Partitions {
+		if part.Type == config.PartitionTypeLvmPV {
+			lvmPartition = &i.Config.Storage.Partitions[idx]
+			partitionNumber = idx + 1
+			break
+		}
 	}
 
-	// Compare with the maximum size set
-	maxSize, err := parseSize(i.Config.Storage.LVM.Size)
-	if err != nil {
-		return fmt.Errorf("failed to parse LVM max size: %v", err)
+	if lvmPartition == nil {
+		return nil // No LVM setup needed
 	}
 
-	if totalSize > maxSize {
-		return fmt.Errorf("total LVM partition size (%d MB) exceeds maximum size (%d MB)", totalSize/1024/1024, maxSize/1024/1024)
-	}
+	// Get PV device path
+	pvDevice := fmt.Sprintf("%s%d", i.Config.Storage.Devices[0], partitionNumber)
 
-	// Delete existing VGs, if any
-	vgName := i.Config.Storage.LVM.VGName
-	if err := utils.RunCommand(i.Logger, "vgremove", "-f", vgName); err != nil {
+	// Remove existing VG if any
+	if err := utils.RunCommand(i.Logger, "vgremove", "-f", lvmPartition.VolumeGroup); err != nil {
 		i.Logger.Info("No existing volume group to remove")
 	}
 
-	// Collect device paths for LVM partitions
-	var lvmDevices []string
-	for _, device := range i.Config.Storage.Devices {
-		for _, partition := range i.Config.Storage.Partitions {
-			if partition.Type == "lvm" {
-				lvmDevice := fmt.Sprintf("%s%d", device, partition.Partition)
-				lvmDevices = append(lvmDevices, lvmDevice)
-				break // Use only the first LVM partition on each device
-			}
-		}
+	// Remove existing PV if any
+	if err := utils.RunCommand(i.Logger, "pvremove", "-ff", pvDevice); err != nil {
+		i.Logger.Info("No existing physical volume to remove")
 	}
 
-	// Delete an existing PV, if any
-	for _, device := range lvmDevices {
-		if err := utils.RunCommand(i.Logger, "pvremove", "-ff", device); err != nil {
-			i.Logger.Info("No existing physical volume to remove on %s", device)
-		}
+	// Create PV
+	if err := utils.RunCommand(i.Logger, "pvcreate", "-ff", pvDevice); err != nil {
+		return fmt.Errorf("failed to create physical volume: %v", err)
 	}
 
-	// Create Physical Volume
-	for _, device := range lvmDevices {
-		if err := utils.RunCommand(i.Logger, "pvcreate", "-ff", device); err != nil {
-			return fmt.Errorf("failed to create physical volume: %v", err)
-		}
-	}
-
-	// Create Volume Group
-	if err := utils.RunCommand(i.Logger, "vgcreate", vgName, strings.Join(lvmDevices, " ")); err != nil {
+	// Create VG
+	if err := utils.RunCommand(i.Logger, "vgcreate", lvmPartition.VolumeGroup, pvDevice); err != nil {
 		return fmt.Errorf("failed to create volume group: %v", err)
 	}
 
-	// Create Logical Volume
-	for _, partition := range i.Config.Storage.Partitions {
-		if partition.Type != "lvm" {
-			continue
-		}
-
-		// Obtain the LV name
-		lvName := partition.LVMConfig.Name
-		if lvName == "" {
-			return fmt.Errorf("LVM name is required for partition %s", partition.MountPoint)
-		}
-
-		if err := utils.RunCommand(i.Logger, "lvcreate", "-y", "-L", partition.Size, "-n", lvName, vgName); err != nil {
+	// Create LVs
+	for _, lv := range lvmPartition.LogicalVolumes {
+		if err := utils.RunCommand(i.Logger, "lvcreate", "-y", "-L", lv.Size,
+			"-n", lv.Name, lvmPartition.VolumeGroup); err != nil {
 			return fmt.Errorf("failed to create logical volume: %v", err)
 		}
 	}
@@ -177,115 +129,110 @@ func (i *Installer) setupLVM() error {
 	return nil
 }
 
-func (i *Installer) calculateTotalLVMSize() (int64, error) {
-	var totalSize int64
-	for _, partition := range i.Config.Storage.Partitions {
-		if partition.Type != "lvm" {
-			continue
-		}
-		size, err := parseSize(partition.Size)
-		if err != nil {
-			return 0, fmt.Errorf("failed to parse size for partition %s: %v", partition.MountPoint, err)
-		}
-		totalSize += size
-	}
-	return totalSize, nil
-}
-
-func parseSize(sizeStr string) (int64, error) {
-	re := regexp.MustCompile(`^(\d+)([GMK])$`)
-	matches := re.FindStringSubmatch(sizeStr)
-	if matches == nil {
-		return 0, fmt.Errorf("invalid size format: %s", sizeStr)
-	}
-
-	size, err := strconv.ParseInt(matches[1], 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("failed to parse size number: %v", err)
-	}
-
-	switch matches[2] {
-	case "G":
-		size *= 1024 * 1024 * 1024
-	case "M":
-		size *= 1024 * 1024
-	case "K":
-		size *= 1024
-	}
-
-	return size, nil
-}
-
 func (i *Installer) createFilesystems() error {
 	i.Logger.Info("Creating filesystems")
 
-	for _, partition := range i.Config.Storage.Partitions {
-		device := i.getDevicePath(partition)
+	// Create filesystems for regular partitions
+	for idx, partition := range i.Config.Storage.Partitions {
+		if partition.Filesystem == "" || partition.Type == config.PartitionTypeBiosBoot {
+			continue
+		}
 
-		if err := utils.RunCommand(i.Logger, "mkfs."+partition.Filesystem,
-			getFsOptions(partition.Filesystem, device)...); err != nil {
-			return fmt.Errorf("failed to create filesystem: %v", err)
+		if partition.Type != config.PartitionTypeLvmPV {
+			device := fmt.Sprintf("%s%d", i.Config.Storage.Devices[0], idx+1)
+			if err := createFilesystem(i.Logger, partition.Filesystem, device); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Create filesystems for logical volumes
+	for _, partition := range i.Config.Storage.Partitions {
+		if partition.Type != config.PartitionTypeLvmPV {
+			continue
+		}
+
+		for _, lv := range partition.LogicalVolumes {
+			device := fmt.Sprintf("/dev/%s/%s", partition.VolumeGroup, lv.Name)
+			if err := createFilesystem(i.Logger, lv.Filesystem, device); err != nil {
+				return err
+			}
 		}
 	}
 
 	return nil
 }
 
-func getFsOptions(fsType, device string) []string {
+func createFilesystem(logger *utils.Logger, fsType, device string) error {
+	var args []string
 	switch fsType {
 	case "vfat":
-		return []string{"-F32", device}
-	case "ext4":
-		return []string{device}
+		args = []string{"-F32", device}
 	default:
-		return []string{device}
+		args = []string{device}
 	}
+
+	if err := utils.RunCommand(logger, "mkfs."+fsType, args...); err != nil {
+		return fmt.Errorf("failed to create filesystem: %v", err)
+	}
+	return nil
 }
 
 func (i *Installer) mountFilesystems() error {
 	i.Logger.Info("Mounting filesystems")
 
-	// Determine the order of mount points
-	sortedPartitions := sortPartitionsByMountpoint(i.Config.Storage.Partitions)
+	// Collect mount points
+	var mounts []struct {
+		device     string
+		mountPoint string
+	}
 
-	for _, partition := range sortedPartitions {
-		device := i.getDevicePath(partition)
-		mountPoint := filepath.Join(i.Config.Installation.MountPoint, partition.MountPoint)
+	// Add regular partitions
+	for idx, partition := range i.Config.Storage.Partitions {
+		if partition.MountPoint != "" && partition.Type != config.PartitionTypeLvmPV {
+			mounts = append(mounts, struct {
+				device     string
+				mountPoint string
+			}{
+				device:     fmt.Sprintf("%s%d", i.Config.Storage.Devices[0], idx+1),
+				mountPoint: partition.MountPoint,
+			})
+		}
+	}
 
+	// Add logical volumes
+	for _, partition := range i.Config.Storage.Partitions {
+		if partition.Type != config.PartitionTypeLvmPV {
+			continue
+		}
+
+		for _, lv := range partition.LogicalVolumes {
+			mounts = append(mounts, struct {
+				device     string
+				mountPoint string
+			}{
+				device:     fmt.Sprintf("/dev/%s/%s", partition.VolumeGroup, lv.Name),
+				mountPoint: lv.MountPoint,
+			})
+		}
+	}
+
+	// Sort mounts by mount point length to ensure proper order
+	sort.Slice(mounts, func(i, j int) bool {
+		return len(mounts[i].mountPoint) < len(mounts[j].mountPoint)
+	})
+
+	// Mount filesystems
+	for _, mount := range mounts {
+		mountPoint := filepath.Join(i.Config.Installation.MountPoint, mount.mountPoint)
 		if err := os.MkdirAll(mountPoint, 0755); err != nil {
 			return fmt.Errorf("failed to create mount point directory: %v", err)
 		}
 
-		if err := utils.RunCommand(i.Logger, "mount", device, mountPoint); err != nil {
+		if err := utils.RunCommand(i.Logger, "mount", mount.device, mountPoint); err != nil {
 			return fmt.Errorf("failed to mount filesystem: %v", err)
 		}
 	}
 
 	return nil
-}
-
-func (i *Installer) getDevicePath(partition config.StoragePartition) string {
-	if partition.Type == "lvm" {
-		vgName := i.Config.Storage.LVM.VGName
-		if partition.LVMConfig.VGName != "" {
-			vgName = partition.LVMConfig.VGName
-		}
-
-		lvName := partition.LVMConfig.Name
-		if lvName == "" {
-			lvName = strings.ReplaceAll(partition.MountPoint[1:], "/", "-")
-		}
-
-		return fmt.Sprintf("/dev/%s/%s", vgName, lvName)
-	}
-	return fmt.Sprintf("%s%d", i.Config.Storage.Devices[0], partition.Partition)
-}
-
-func sortPartitionsByMountpoint(partitions []config.StoragePartition) []config.StoragePartition {
-	sorted := make([]config.StoragePartition, len(partitions))
-	copy(sorted, partitions)
-	sort.Slice(sorted, func(i, j int) bool {
-		return len(sorted[i].MountPoint) < len(sorted[j].MountPoint)
-	})
-	return sorted
 }
