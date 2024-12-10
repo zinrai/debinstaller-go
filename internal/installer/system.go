@@ -35,11 +35,17 @@ func (i *Installer) setHostname() error {
 func (i *Installer) configureLocale() error {
 	i.Logger.Info("Configuring locale")
 
-	if err := utils.RunCommand(i.Logger, "chroot", i.Config.Installation.MountPoint, "locale-gen", i.Config.System.Locale); err != nil {
-		return fmt.Errorf("failed to generate locale: %v", err)
+	// C.UTF-8 is available by default, so do not run locale-gen.
+	locale := "C.UTF-8"
+	if i.Config.System.Locale != "" && i.Config.System.Locale != "C.UTF-8" {
+		// If the set locale is not C.UTF-8, execute locale-gen.
+		if err := utils.RunCommand(i.Logger, "chroot", i.Config.Installation.MountPoint, "locale-gen", i.Config.System.Locale); err != nil {
+			return fmt.Errorf("failed to generate locale: %v", err)
+		}
+		locale = i.Config.System.Locale
 	}
 
-	if err := utils.RunCommand(i.Logger, "chroot", i.Config.Installation.MountPoint, "update-locale", fmt.Sprintf("LANG=%s", i.Config.System.Locale)); err != nil {
+	if err := utils.RunCommand(i.Logger, "chroot", i.Config.Installation.MountPoint, "update-locale", "LANG="+locale); err != nil {
 		return fmt.Errorf("failed to update locale: %v", err)
 	}
 

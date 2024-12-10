@@ -39,7 +39,6 @@ storage:
         name: "var"
 system:
   hostname: "debian-server"
-  locale: "LANG=C.UTF-8"
 
 network:
   interface: "eth0"
@@ -52,8 +51,6 @@ users:
       - "sudo"
 
 packages:
-  - openssh-server
-  - sudo
   - vim
 
 bootloader:

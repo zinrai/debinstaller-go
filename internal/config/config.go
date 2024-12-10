@@ -31,7 +31,7 @@ type Config struct {
 	} `yaml:"storage"`
 	System struct {
 		Hostname string `yaml:"hostname"`
-		Locale   string `yaml:"locale"`
+		Locale   string `yaml:"locale,omitempty"`
 	} `yaml:"system"`
 	Network struct {
 		Interface string `yaml:"interface"`
