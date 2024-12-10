@@ -96,7 +96,7 @@ func (i *Installer) installAdditionalPackages() error {
 func (i *Installer) installBootloader() error {
 	i.Logger.Info("Installing bootloader")
 
-	if i.Config.Bootloader.EFI {
+	if i.Config.Storage.Bootloader.Type == "efi" {
 		if err := utils.RunCommand(i.Logger, "chroot", i.Config.Installation.MountPoint,
 			"grub-install", "--target=x86_64-efi", "--efi-directory=/boot/efi", "--bootloader-id=debian"); err != nil {
 			return fmt.Errorf("failed to install GRUB EFI: %v", err)
@@ -108,8 +108,10 @@ func (i *Installer) installBootloader() error {
 		}
 	}
 
-	if err := utils.RunCommand(i.Logger, "chroot", i.Config.Installation.MountPoint, "update-grub"); err != nil {
-		return fmt.Errorf("failed to update GRUB: %v", err)
+	// Generate grub.cfg
+	if err := utils.RunCommand(i.Logger, "chroot", i.Config.Installation.MountPoint,
+		"grub-mkconfig", "-o", "/boot/grub/grub.cfg"); err != nil {
+		return fmt.Errorf("failed to generate grub.cfg: %v", err)
 	}
 
 	return nil
