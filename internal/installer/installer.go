@@ -62,9 +62,9 @@ func (i *Installer) mountSpecialFilesystems() error {
 		source  string
 		target  string
 	}{
-		{[]string{"--rbind"}, "/dev", "/dev"},
+		{[]string{"--bind"}, "/dev", "/dev"},
 		{[]string{"-t", "proc"}, "none", "/proc"},
-		{[]string{"--rbind"}, "/sys", "/sys"},
+		{[]string{"--bind"}, "/sys", "/sys"},
 	}
 
 	for _, mp := range mountPoints {
