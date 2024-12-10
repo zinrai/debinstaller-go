@@ -10,7 +10,7 @@ storage:
       mount_point: "/boot/efi"
     - type: "boot"
       size: "512M"
-      filesystem: "ext4"
+      filesystem: "ext2"
       mount_point: "/boot"
     - type: "lvm_pv"
       size: "15G"
