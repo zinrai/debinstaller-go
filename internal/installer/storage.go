@@ -169,7 +169,7 @@ func (i *Installer) setupLVM() error {
 			return fmt.Errorf("LVM name is required for partition %s", partition.MountPoint)
 		}
 
-		if err := utils.RunCommand(i.Logger, "lvcreate", "-L", partition.Size, "-n", lvName, vgName); err != nil {
+		if err := utils.RunCommand(i.Logger, "lvcreate", "-y", "-L", partition.Size, "-n", lvName, vgName); err != nil {
 			return fmt.Errorf("failed to create logical volume: %v", err)
 		}
 	}
