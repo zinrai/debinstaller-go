@@ -3,6 +3,7 @@ package installer
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/zinrai/debinstaller-go/internal/utils"
 )
@@ -27,6 +28,43 @@ func (i *Installer) setHostname() error {
 
 	if err := os.WriteFile(i.Config.Installation.MountPoint+"/etc/hostname", []byte(i.Config.System.Hostname), 0644); err != nil {
 		return fmt.Errorf("failed to set hostname: %v", err)
+	}
+
+	if err := i.configureHosts(); err != nil {
+		return fmt.Errorf("failed to configure hosts: %v", err)
+	}
+
+	return nil
+}
+
+func (i *Installer) configureHosts() error {
+	i.Logger.Info("Configuring /etc/hosts")
+
+	hostsPath := i.Config.Installation.MountPoint + "/etc/hosts"
+
+	// Read existing hosts file
+	content, err := os.ReadFile(hostsPath)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to read hosts file: %v", err)
+	}
+
+	// Check if hostname entry already exists
+	hostname := i.Config.System.Hostname
+	lines := strings.Split(string(content), "\n")
+	for _, line := range lines {
+		fields := strings.Fields(line)
+		if len(fields) >= 2 && fields[1] == hostname {
+			// Hostname entry already exists
+			return nil
+		}
+	}
+
+	// Prepare new hosts entry
+	newEntry := fmt.Sprintf("127.0.1.1\t%s\n", hostname)
+
+	// Append the new entry
+	if err := os.WriteFile(hostsPath, []byte(string(content)+newEntry), 0644); err != nil {
+		return fmt.Errorf("failed to write hosts file: %v", err)
 	}
 
 	return nil
