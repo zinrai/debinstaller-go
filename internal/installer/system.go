@@ -83,8 +83,11 @@ func (i *Installer) configureLocale() error {
 		locale = i.Config.System.Locale
 	}
 
-	if err := utils.RunCommand(i.Logger, "chroot", i.Config.Installation.MountPoint, "update-locale", "LANG="+locale); err != nil {
-		return fmt.Errorf("failed to update locale: %v", err)
+	localeContent := fmt.Sprintf("LANG=%s\n", locale)
+	localeFile := i.Config.Installation.MountPoint + "/etc/default/locale"
+
+	if err := os.WriteFile(localeFile, []byte(localeContent), 0644); err != nil {
+		return fmt.Errorf("failed to write locale file: %v", err)
 	}
 
 	return nil
