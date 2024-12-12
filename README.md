@@ -112,6 +112,7 @@ Basic system settings:
 ```yaml
 system:
   hostname: "debian-server"
+  locale: "ja_JP.UTF-8"  # Optional. Defaults to C.UTF-8 if not specified
 
 users:
   - username: "admin"
