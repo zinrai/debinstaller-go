@@ -23,10 +23,10 @@ jobs:
       - name: Build binaries for multiple architectures
         run: |
           # Build for amd64
-          GOOS=linux GOARCH=amd64 go build -o debinstaller-go-linux-amd64
+          GOOS=linux GOARCH=amd64 go build -o debinstaller-go-linux-amd64 cmd/debinstaller/main.go
 
           # Build for arm64
-          GOOS=linux GOARCH=arm64 go build -o debinstaller-go-linux-arm64
+          GOOS=linux GOARCH=arm64 go build -o debinstaller-go-linux-arm64 cmd/debinstaller/main.go
 
       - name: Create Release
         id: create_release
