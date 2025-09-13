@@ -139,4 +139,4 @@ log_file: "/tmp/debian_install.log"
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](https://opensource.org/license/mit) for details.
+This project is licensed under the [MIT License](./LICENSE).
