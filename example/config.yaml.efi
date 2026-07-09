@@ -32,10 +32,6 @@ storage:
 system:
   hostname: "debian-server"
 
-network:
-  interface: "ens3"
-  type: "dhcp"
-
 users:
   - username: "admin"
     password: "changeme"

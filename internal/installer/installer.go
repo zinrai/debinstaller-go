@@ -116,10 +116,6 @@ func (i *Installer) configureSystem() error {
 		return err
 	}
 
-	if err := i.configureNetwork(); err != nil {
-		return err
-	}
-
 	if err := i.configureUsers(); err != nil {
 		return err
 	}

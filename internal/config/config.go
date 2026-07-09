@@ -30,14 +30,6 @@ type Partition struct {
 	LogicalVolumes []LogicalVolume `yaml:"logical_volumes,omitempty"`
 }
 
-type NetworkConfig struct {
-	Interface string `yaml:"interface"`
-	Type      string `yaml:"type"` // "dhcp" or "static"
-	Address   string `yaml:"address,omitempty"`
-	Netmask   string `yaml:"netmask,omitempty"`
-	Gateway   string `yaml:"gateway,omitempty"`
-}
-
 type Config struct {
 	Storage struct {
 		Devices    []string `yaml:"devices"`
@@ -50,8 +42,7 @@ type Config struct {
 		Hostname string `yaml:"hostname"`
 		Locale   string `yaml:"locale,omitempty"`
 	} `yaml:"system"`
-	Network NetworkConfig `yaml:"network"`
-	Users   []struct {
+	Users []struct {
 		Username string   `yaml:"username"`
 		Password string   `yaml:"password"`
 		Groups   []string `yaml:"groups"`

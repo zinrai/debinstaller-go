@@ -9,7 +9,16 @@ A Go-based Debian installer that supports both BIOS and EFI boot installations w
 - YAML-based configuration
 - Flexible partition configuration
 - Automated installation process
-- Support for both DHCP and static IP configuration
+
+## Use Case
+
+debinstaller-go is meant to run from a Debian Live environment booted on the target server. The intended flow is:
+
+1. Build a Live USB image with live-build, bundling the debinstaller-go binary and the required Debian packages (see Prerequisites).
+2. Boot the target server from the Live USB and access it through the server's console.
+3. Prepare a configuration file for that server and run the installer with root privileges.
+
+The installer only orchestrates tools that the Live environment provides, so everything it needs must already be present in the image. The Live environment is disposable, so the server is rebooted into the installed system once installation finishes.
 
 ## Prerequisites
 
@@ -20,12 +29,6 @@ A Go-based Debian installer that supports both BIOS and EFI boot installations w
   - `debootstrap`: base system installation
   - `dosfstools`: vfat filesystem operations with mkfs.vfat command
   - `arch-install-scripts`: generating fstab with genfstab command
-
-## Installation
-
-```bash
-$ go build -o debinstaller-go ./cmd/debinstaller/main.go
-```
 
 ## Usage
 
@@ -82,28 +85,7 @@ storage:
           mount_point: "/var"
 ```
 
-### Network Configuration
-
-Support for both DHCP and static IP configuration.
-
-DHCP Configuration:
-
-```yaml
-network:
-  interface: "ens1"
-  type: "dhcp"
-```
-
-Static IP Configuration:
-
-```yaml
-network:
-  interface: "ens1"
-  type: "static"
-  address: "192.168.2.20"
-  netmask: "255.255.255.0"
-  gateway: "192.168.2.254"
-```
+Network configuration is out of scope: configure the installed system's network separately with Ansible, debiface-gen, or by hand.
 
 ### System Configuration
 
