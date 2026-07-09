@@ -11,9 +11,21 @@ import (
 	"github.com/zinrai/debinstaller-go/internal/utils"
 )
 
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
 func main() {
 	configFile := flag.String("config", "config.yaml", "Path to the configuration file")
+	showVersion := flag.Bool("version", false, "Print version information and exit")
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Printf("debinstaller-go %s (commit %s, built %s)\n", version, commit, date)
+		return
+	}
 
 	cfg, err := config.LoadConfig(*configFile)
 	if err != nil {
