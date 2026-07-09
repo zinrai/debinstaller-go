@@ -1,8 +1,9 @@
 package config
 
 import (
-	"gopkg.in/yaml.v2"
 	"os"
+
+	"github.com/goccy/go-yaml"
 )
 
 type PartitionType string
